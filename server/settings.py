@@ -34,7 +34,7 @@ CORS_ORIGIN_ALLOW_ALL = True
 # Application definition
 
 INSTALLED_APPS = [
-    'venues.apps.VenuesConfig',
+    'venues.VenuesConfig',
     'corsheaders',
     'django.contrib.admin',
     'django.contrib.auth',
