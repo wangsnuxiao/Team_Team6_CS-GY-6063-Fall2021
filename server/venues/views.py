@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 
-from venues.models import Venue
+from server.venues.models import Venue
 
 # Create your views here.
 
