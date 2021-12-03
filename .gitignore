@@ -1,5 +1,6 @@
 .DS_Store
 
+staticfiles
 tmp
 .env
 .idea
@@ -7,3 +8,4 @@ tmp
 db.sqlite3
 .vscode
 .coverage
+htmlcov

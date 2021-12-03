@@ -4,6 +4,7 @@ from django.shortcuts import get_object_or_404
 from django.shortcuts import render
 from dayplanner.services import yelp_client
 from resources.days.models import Day, DayVenue
+from resources.categories.models import Category, DayCategory
 from resources.venues.models import Venue
 
 
@@ -11,6 +12,7 @@ def viewMap(request, day_id):
     day = get_object_or_404(Day, pk=day_id)
     context = {}
     context["day"] = day
+    context["active_categories"] = day.daycategory_set.all()
     DayVenues = day.dayvenue_set.all()
     fetch_list = []
     for dv in DayVenues:
@@ -123,7 +125,7 @@ def searchpage(request, day_id):
             # Add Venue into current selected day and refresh the page
             return addVenue(request, day)
 
-        return render(request, "creation/_search_page.html", context)
+        return render(request, "creation/search_page.html", context)
     elif request.method == "POST":
         if request.GET.get("search"):
             return search(request, context)
@@ -142,10 +144,20 @@ def search(request, context):
     user_input_param1 = request.POST["user_input_term"]
     user_input_param2 = request.POST["user_input_location"]
 
-    bussiness_data = yelp_client.search(user_input_param1, user_input_param2)
-    context["search_results"] = bussiness_data["businesses"]
+    business_data = yelp_client.search(user_input_param1, user_input_param2)
+    if "businesses" not in business_data:
+        context["error"] = "Your input is invalid"
+        return render(request, "creation/search_page.html", context)
 
-    return render(request, "creation/_search_page.html", context)
+    context["search_results"] = business_data["businesses"]
+    coordinates = []
+    # [{"latitude":<lat_val>,"longitude":<long_val>,"name":<name>}]
+    for business in business_data["businesses"]:
+        data = business["coordinates"]
+        data["name"] = business["name"]
+        coordinates.append(data)
+    context["coordinates"] = coordinates
+    return render(request, "creation/search_page.html", context)
 
 
 @login_required(login_url="/authentication/login")
@@ -163,3 +175,37 @@ def daylist(request):
         "username": userObject.username,
     }
     return render(request, "creation/_day_list.html", context)
+
+
+def edit_categories_page(request, day_id):
+    day = get_object_or_404(Day, pk=day_id)
+    cat_list = [daycat.cat for daycat in day.daycategory_set.all()]
+    context = {
+        "active_categories": day.daycategory_set.all(),
+        "inactive_categories": Category.objects.all().exclude(cat__in=cat_list),
+        "day": day,
+    }
+    return render(request, "creation/edit_category_page.html", context)
+
+
+def add_daycategory(request, day_id, daycat_id):
+    day = get_object_or_404(Day, pk=day_id)
+    cat = get_object_or_404(Category, pk=daycat_id)
+    try:
+        DayCategory.objects.create(day=day, cat=cat)
+    except Exception as e:
+        print("-- Add error %s") % (e)
+    return HttpResponseRedirect("/creation/%i/edit/categories" % day_id)
+
+
+def remove_daycategory(request, day_id, daycat_id):
+    day = get_object_or_404(Day, pk=day_id)
+    daycat = get_object_or_404(DayCategory, pk=daycat_id)
+    cat = get_object_or_404(Category, cat=daycat.cat)
+    curr = DayCategory.objects.filter(day=day, cat=cat, pk=daycat_id)
+    if len(curr) == 1:
+        try:
+            DayCategory.objects.get(pk=daycat_id).delete()
+        except Exception as e:
+            print("-- deletion error %s") % (e)
+    return HttpResponseRedirect("/creation/%i/edit/categories" % day_id)

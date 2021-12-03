@@ -52,6 +52,17 @@ class Day(models.Model):
             curr.save()
             next.save()
 
+    def fork(self, creator):
+        with transaction.atomic():
+            new_day = Day.objects.create(
+                creator=creator, name=self.name, description=self.description
+            )
+
+            for dv in self.dayvenue_set.all():
+                DayVenue.objects.create(day=new_day, venue=dv.venue, pos=dv.pos)
+
+        return new_day
+
 
 class DayVenue(models.Model):
     class Meta:
@@ -60,3 +71,16 @@ class DayVenue(models.Model):
     day = models.ForeignKey(Day, on_delete=models.CASCADE)
     venue = models.ForeignKey(Venue, on_delete=models.CASCADE)
     pos = models.IntegerField()
+
+
+class FavoriteDay(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    day = models.ForeignKey(Day, on_delete=models.CASCADE)
+    created_at = models.TimeField("Created at", auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "day"], name="favoriteday_unique_user_day"
+            )
+        ]
